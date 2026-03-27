@@ -1,0 +1,30 @@
+<?php
+
+define('WIZARR_INTERNAL_URL', 'http://docker-ip:5690'); // no trailing slash — used for API calls
+define('WIZARR_EXTERNAL_URL', 'https://example.domain.com');    // no trailing slash — used in emailed links
+define('WIZARR_API_KEY',  '');
+define('BREVO_API_KEY',   '');
+define('MAIL_FROM_EMAIL', 'noreply@domain.com');
+define('MAIL_FROM_NAME',  'Jellyfin');
+define('MAIL_SUBJECT',    'Jellyfin - Password Reset Request');
+
+// ── CAPTCHA ───────────────────────────────────────────────────────────────────
+// Supported values: 'turnstile' | 'hcaptcha' | 'recaptcha_v2' | 'recaptcha_v3' | 'none'
+define('CAPTCHA_PROVIDER', 'turnstile');
+
+// Cloudflare Turnstile — https://dash.cloudflare.com/?to=/:account/turnstile
+define('TURNSTILE_SITE_KEY',   '');
+define('TURNSTILE_SECRET_KEY', '');
+
+// hCaptcha — https://dashboard.hcaptcha.com/
+define('HCAPTCHA_SITE_KEY',   '');
+define('HCAPTCHA_SECRET_KEY', '');
+
+// Google reCAPTCHA v2 (checkbox) — https://www.google.com/recaptcha/admin
+define('RECAPTCHA_V2_SITE_KEY',   '');
+define('RECAPTCHA_V2_SECRET_KEY', '');
+
+// Google reCAPTCHA v3 (score-based) — https://www.google.com/recaptcha/admin
+define('RECAPTCHA_V3_SITE_KEY',   '');
+define('RECAPTCHA_V3_SECRET_KEY', '');
+define('RECAPTCHA_V3_THRESHOLD',  0.5);  // minimum score to pass (0.0–1.0)

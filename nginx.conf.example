@@ -1,0 +1,68 @@
+# Wizarr + Reset Password — nginx example
+#
+# Replace every ALL_CAPS placeholder before use:
+#   DOMAIN          your public domain, e.g. wizarr.example.com
+#   WIZARR_HOST     host:port where Wizarr is reachable from nginx, e.g. 127.0.0.1:5690
+#   RESET_PATH      filesystem path to this repo, e.g. /var/www/reset-password
+#   PHP_FPM_SOCK    path to the PHP-FPM socket, e.g. unix:/run/php/php8.3-fpm.sock
+#                   or a TCP address, e.g. 127.0.0.1:9000
+#   CERT_FILE       path to your TLS certificate, e.g. /etc/nginx/ssl/example.com.pem
+#   KEY_FILE        path to your TLS private key,  e.g. /etc/nginx/ssl/example.com.key
+
+# HTTP — redirect all traffic to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name DOMAIN;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS
+server {
+    server_name DOMAIN;
+
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+
+    ssl_certificate     CERT_FILE;
+    ssl_certificate_key KEY_FILE;
+
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    access_log /var/log/nginx/DOMAIN-access.log;
+    error_log  /var/log/nginx/DOMAIN-error.log;
+
+    # ── Reset Password (PHP) ──────────────────────────────────────────────────
+    location /reset-password {
+        alias RESET_PATH;
+        index index.php;
+        try_files $uri $uri/ /reset-password/index.php$is_args$args;
+
+        # Block direct access to config.php
+        location ~ /config\.php$ {
+            deny all;
+        }
+
+        location ~ \.php$ {
+            fastcgi_pass PHP_FPM_SOCK;
+            fastcgi_param SCRIPT_FILENAME $request_filename;
+            include fastcgi_params;
+        }
+    }
+
+    # ── Wizarr (reverse proxy) ────────────────────────────────────────────────
+    location / {
+        proxy_pass http://WIZARR_HOST;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade             $http_upgrade;
+        proxy_set_header Connection          "upgrade";
+        proxy_set_header Host                $host;
+        proxy_set_header X-Real-IP           $remote_addr;
+        proxy_set_header X-Forwarded-For     $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto   $scheme;
+        proxy_set_header X-Forwarded-Host    $host;
+    }
+}
