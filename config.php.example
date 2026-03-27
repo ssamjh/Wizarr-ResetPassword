@@ -3,13 +3,28 @@
 define('WIZARR_INTERNAL_URL', 'http://docker-ip:5690'); // no trailing slash — used for API calls
 define('WIZARR_EXTERNAL_URL', 'https://example.domain.com');    // no trailing slash — used in emailed links
 define('WIZARR_API_KEY',  '');
-define('BREVO_API_KEY',   '');
+
+// Mail provider: 'brevo' | 'smtp'
+define('MAIL_PROVIDER',   'brevo');
 define('MAIL_FROM_EMAIL', 'noreply@domain.com');
 define('MAIL_FROM_NAME',  'Jellyfin');
 define('MAIL_SUBJECT',    'Jellyfin - Password Reset Request');
 
-// ── CAPTCHA ───────────────────────────────────────────────────────────────────
-// Supported values: 'turnstile' | 'hcaptcha' | 'recaptcha_v2' | 'recaptcha_v3' | 'none'
+// Brevo (API) — https://app.brevo.com/settings/keys/api
+// Only required when MAIL_PROVIDER = 'brevo'
+define('BREVO_API_KEY',   '');
+
+// SMTP — only required when MAIL_PROVIDER = 'smtp'
+// SMTP_ENCRYPTION: 'tls' (STARTTLS, typically port 587)
+//                  'ssl' (implicit TLS, typically port 465)
+//                  'none' (plaintext, typically port 25)
+define('SMTP_HOST',       'smtp.example.com');
+define('SMTP_PORT',       587);
+define('SMTP_ENCRYPTION', 'tls');
+define('SMTP_USERNAME',   '');
+define('SMTP_PASSWORD',   '');
+
+// Captcha provider: 'turnstile' | 'hcaptcha' | 'recaptcha_v2' | 'recaptcha_v3' | 'none'
 define('CAPTCHA_PROVIDER', 'turnstile');
 
 // Cloudflare Turnstile — https://dash.cloudflare.com/?to=/:account/turnstile

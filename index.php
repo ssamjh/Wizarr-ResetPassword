@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $reset_link = WIZARR_EXTERNAL_URL . $reset_resp['url'];
 
-                $sent = send_brevo_email(
+                $sent = send_email(
                     $user['email'],
                     $user['username'],
                     $reset_link
@@ -168,14 +168,8 @@ function verify_recaptcha_v3(string $token): bool {
         && ($data['score']   ?? 0.0)   >= RECAPTCHA_V3_THRESHOLD;
 }
 
-function send_brevo_email(string $to_email, string $to_name, string $reset_link): bool {
-    $payload = json_encode([
-        'sender'      => ['name' => MAIL_FROM_NAME, 'email' => MAIL_FROM_EMAIL],
-        'to'          => [['email' => $to_email, 'name' => $to_name]],
-        'subject'     => MAIL_SUBJECT,
-        'trackClicks' => false,
-        'trackOpens'  => false,
-        'htmlContent' => '
+function email_html_body(string $to_name, string $reset_link): string {
+    return '
 <!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#0f0f0f;font-family:\'Helvetica Neue\',Arial,sans-serif;">
@@ -234,9 +228,27 @@ function send_brevo_email(string $to_email, string $to_name, string $reset_link)
     </tr>
   </table>
 </body>
-</html>',
+</html>';
+}
+
+function send_email(string $to_email, string $to_name, string $reset_link): bool {
+    switch (MAIL_PROVIDER) {
+        case 'smtp':  return send_smtp_email($to_email, $to_name, $reset_link);
+        case 'brevo': return send_brevo_email($to_email, $to_name, $reset_link);
+        default:      return send_brevo_email($to_email, $to_name, $reset_link);
+    }
+}
+
+function send_brevo_email(string $to_email, string $to_name, string $reset_link): bool {
+    $payload = json_encode([
+        'sender'      => ['name' => MAIL_FROM_NAME, 'email' => MAIL_FROM_EMAIL],
+        'to'          => [['email' => $to_email, 'name' => $to_name]],
+        'subject'     => MAIL_SUBJECT,
+        'trackClicks' => false,
+        'trackOpens'  => false,
+        'htmlContent' => email_html_body($to_name, $reset_link),
     ]);
- 
+
     $ch = curl_init('https://api.brevo.com/v3/smtp/email');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -253,6 +265,122 @@ function send_brevo_email(string $to_email, string $to_name, string $reset_link)
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     return ($code >= 200 && $code < 300);
+}
+
+function send_smtp_email(string $to_email, string $to_name, string $reset_link): bool {
+    $host       = SMTP_HOST;
+    $port       = SMTP_PORT;
+    $encryption = SMTP_ENCRYPTION; // 'tls' | 'ssl' | 'none'
+    $username   = SMTP_USERNAME;
+    $password   = SMTP_PASSWORD;
+
+    // Build headers
+    $subject  = '=?UTF-8?B?' . base64_encode(MAIL_SUBJECT) . '?=';
+    $from_name = '=?UTF-8?B?' . base64_encode(MAIL_FROM_NAME) . '?=';
+    $to_name_enc = '=?UTF-8?B?' . base64_encode($to_name) . '?=';
+    $date     = date('r');
+    $msg_id   = '<' . uniqid('', true) . '@' . ($host) . '>';
+
+    $headers = implode("\r\n", [
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        'From: ' . $from_name . ' <' . MAIL_FROM_EMAIL . '>',
+        'To: ' . $to_name_enc . ' <' . $to_email . '>',
+        'Subject: ' . $subject,
+        'Date: ' . $date,
+        'Message-ID: ' . $msg_id,
+    ]);
+
+    $body = chunk_split(base64_encode(email_html_body($to_name, $reset_link)));
+
+    // Open socket
+    $errno = 0; $errstr = '';
+    $ctx = stream_context_create(['ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
+
+    if ($encryption === 'ssl') {
+        $socket = @stream_socket_client("ssl://{$host}:{$port}", $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $ctx);
+    } else {
+        $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, 15);
+    }
+
+    if (!$socket) {
+        return false;
+    }
+
+    stream_set_timeout($socket, 15);
+
+    // Read one complete SMTP response (handles multi-line 250- responses)
+    $read_response = function() use ($socket): string {
+        $buf = '';
+        while (($line = fgets($socket, 1024)) !== false) {
+            $buf .= $line;
+            // Last line of a response has a space after the 3-digit code
+            if (isset($line[3]) && $line[3] === ' ') {
+                break;
+            }
+        }
+        return $buf;
+    };
+
+    $smtp_expect = function(string $code) use ($read_response): bool {
+        $resp = $read_response();
+        return strncmp($resp, $code, strlen($code)) === 0;
+    };
+
+    $smtp_send = function(string $cmd) use ($socket): void {
+        fwrite($socket, $cmd . "\r\n");
+    };
+
+    $ehlo = 'EHLO ' . (gethostname() ?: 'localhost');
+
+    // Greeting
+    if (!$smtp_expect('220')) { fclose($socket); return false; }
+
+    // EHLO
+    $smtp_send($ehlo);
+    if (!$smtp_expect('250')) { fclose($socket); return false; }
+
+    // STARTTLS upgrade
+    if ($encryption === 'tls') {
+        $smtp_send('STARTTLS');
+        if (!$smtp_expect('220')) { fclose($socket); return false; }
+        if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            fclose($socket);
+            return false;
+        }
+        // Re-EHLO after TLS handshake
+        $smtp_send($ehlo);
+        if (!$smtp_expect('250')) { fclose($socket); return false; }
+    }
+
+    // Authentication
+    if ($username !== '') {
+        $smtp_send('AUTH LOGIN');
+        if (!$smtp_expect('334')) { fclose($socket); return false; }
+        $smtp_send(base64_encode($username));
+        if (!$smtp_expect('334')) { fclose($socket); return false; }
+        $smtp_send(base64_encode($password));
+        if (!$smtp_expect('235')) { fclose($socket); return false; }
+    }
+
+    // Envelope
+    $smtp_send('MAIL FROM:<' . MAIL_FROM_EMAIL . '>');
+    if (!$smtp_expect('250')) { fclose($socket); return false; }
+
+    $smtp_send('RCPT TO:<' . $to_email . '>');
+    if (!$smtp_expect('250')) { fclose($socket); return false; }
+
+    // Message
+    $smtp_send('DATA');
+    if (!$smtp_expect('354')) { fclose($socket); return false; }
+
+    fwrite($socket, $headers . "\r\n\r\n" . $body . "\r\n.\r\n");
+    if (!$smtp_expect('250')) { fclose($socket); return false; }
+
+    $smtp_send('QUIT');
+    fclose($socket);
+    return true;
 }
  
 ?>
