@@ -5,7 +5,7 @@ A lightweight self-hosted password reset page for [Wizarr](https://github.com/wi
 When a user submits their username or email, this page:
 1. Looks them up via the Wizarr API
 2. Requests a password reset token from Wizarr
-3. Sends the reset link to the user's email via [Brevo](https://www.brevo.com/)
+3. Sends the reset link to the user's email via [Brevo](https://www.brevo.com/) or any SMTP server
 
 Includes configurable bot protection (Cloudflare Turnstile, hCaptcha, Google reCAPTCHA v2/v3, or none), validated server-side so the check can't be bypassed by removing it from the frontend.
 
@@ -13,7 +13,7 @@ Includes configurable bot protection (Cloudflare Turnstile, hCaptcha, Google reC
 
 - PHP 7.4+ with `curl` extension
 - A Wizarr instance with API access
-- A [Brevo](https://www.brevo.com/) account (free tier works)
+- A mail provider — either a [Brevo](https://www.brevo.com/) account (free tier works) or any SMTP server
 - A captcha provider account (see below) — or set `CAPTCHA_PROVIDER` to `none` to disable
 
 ## Setup
@@ -38,10 +38,16 @@ Then edit `config.php` and fill in all values:
 | `WIZARR_INTERNAL_URL` | Internal URL of your Wizarr instance (used for API calls, e.g. `http://192.168.1.10:5690`) |
 | `WIZARR_EXTERNAL_URL` | Public-facing URL of your Wizarr instance (used in emailed reset links) |
 | `WIZARR_API_KEY` | Wizarr API key — found in Wizarr → Settings → API |
-| `BREVO_API_KEY` | Brevo API key — found in Brevo → Settings → API Keys |
+| `MAIL_PROVIDER` | Mail backend to use: `brevo` or `smtp` |
 | `MAIL_FROM_EMAIL` | Sender email address shown on reset emails |
 | `MAIL_FROM_NAME` | Sender name shown on reset emails |
 | `MAIL_SUBJECT` | Subject line for reset emails |
+| `BREVO_API_KEY` | Brevo API key — found in Brevo → Settings → API Keys. Only required when `MAIL_PROVIDER` is `brevo` |
+| `SMTP_HOST` | SMTP server hostname. Only required when `MAIL_PROVIDER` is `smtp` |
+| `SMTP_PORT` | SMTP server port (typically `587` for STARTTLS, `465` for implicit TLS, `25` for plaintext) |
+| `SMTP_ENCRYPTION` | `tls` (STARTTLS), `ssl` (implicit TLS), or `none` (plaintext) |
+| `SMTP_USERNAME` | SMTP authentication username |
+| `SMTP_PASSWORD` | SMTP authentication password |
 | `CAPTCHA_PROVIDER` | Which captcha to use: `turnstile`, `hcaptcha`, `recaptcha_v2`, `recaptcha_v3`, or `none` |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile keys |
 | `HCAPTCHA_SITE_KEY` / `HCAPTCHA_SECRET_KEY` | hCaptcha keys |
@@ -84,7 +90,7 @@ User submits form
   → Captcha token verified server-side against provider API
   → Username/email looked up via Wizarr API
   → Reset token requested from Wizarr API
-  → Reset link emailed to user via Brevo
+  → Reset link emailed to user via Brevo or SMTP
 ```
 
 User-existence is never revealed in the response — if no account is found, the page still shows the "check your inbox" message to prevent enumeration.
