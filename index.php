@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/config.php';
 
-$state   = 'form';   // form | sent | no_email | error
+$state   = 'form'; // form | sent | no_email | error
 $message = '';
  
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $state   = 'error';
         $message = 'Please enter your username or email address.';
     } else {
-        // 1. Look up user in Wizarr — try email first, then username
+        // Look up user in Wizarr, try email first then username
         $user = null;
         foreach (['email', 'username'] as $field) {
             $url  = WIZARR_INTERNAL_URL . '/api/users?' . http_build_query([$field => $input]);
@@ -28,24 +28,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
  
         if (!$user) {
-            // Don't reveal if the user exists — generic message
+            // Don't reveal whether the account exists
             $state = 'sent';
         } elseif (empty($user['email'])) {
             $state = 'no_email';
         } else {
-            // 2. Ask Wizarr to generate a reset link
             $reset_url  = WIZARR_INTERNAL_URL . '/api/users/' . $user['id'] . '/reset-password';
             $reset_resp = wizarr_post($reset_url);
- 
- 
+
             if (!$reset_resp || empty($reset_resp['url'])) {
                 $state   = 'error';
                 $message = 'Could not generate a reset link. Please try again later.';
             } else {
-                // Build the reset link using the external base URL.
                 $reset_link = WIZARR_EXTERNAL_URL . $reset_resp['url'];
- 
-                // 3. Send email via Brevo
+
                 $sent = send_brevo_email(
                     $user['email'],
                     $user['username'],
@@ -60,10 +56,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
- 
-// ─────────────────────────────────────────────
-//  HELPERS
-// ─────────────────────────────────────────────
  
 function wizarr_get(string $url): ?array {
     $ch = curl_init($url);
@@ -100,8 +92,6 @@ function wizarr_post(string $url): ?array {
     return ($code === 200 && $body) ? json_decode($body, true) : null;
 }
  
-// ── CAPTCHA HELPERS ───────────────────────────────────────────────────────────
-
 function captcha_token_from_post(): string {
     switch (CAPTCHA_PROVIDER) {
         case 'turnstile':    return $_POST['cf-turnstile-response'] ?? '';

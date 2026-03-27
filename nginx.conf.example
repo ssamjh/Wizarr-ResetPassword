@@ -1,15 +1,13 @@
-# Wizarr + Reset Password — nginx example
-#
-# Replace every ALL_CAPS placeholder before use:
-#   DOMAIN          your public domain, e.g. wizarr.example.com
-#   WIZARR_HOST     host:port where Wizarr is reachable from nginx, e.g. 127.0.0.1:5690
-#   RESET_PATH      filesystem path to this repo, e.g. /var/www/reset-password
-#   PHP_FPM_SOCK    path to the PHP-FPM socket, e.g. unix:/run/php/php8.3-fpm.sock
-#                   or a TCP address, e.g. 127.0.0.1:9000
-#   CERT_FILE       path to your TLS certificate, e.g. /etc/nginx/ssl/example.com.pem
-#   KEY_FILE        path to your TLS private key,  e.g. /etc/nginx/ssl/example.com.key
+# Wizarr + Reset Password nginx example
+# Replace ALL_CAPS placeholders before use:
+#   DOMAIN       - your public domain, e.g. wizarr.example.com
+#   WIZARR_HOST  - host:port where Wizarr is reachable from nginx, e.g. 127.0.0.1:5690
+#   RESET_PATH   - filesystem path to this repo, e.g. /var/www/reset-password
+#   PHP_FPM_SOCK - PHP-FPM socket (e.g. unix:/run/php/php8.3-fpm.sock) or TCP address (e.g. 127.0.0.1:9000)
+#   CERT_FILE    - path to your TLS certificate, e.g. /etc/nginx/ssl/example.com.pem
+#   KEY_FILE     - path to your TLS private key, e.g. /etc/nginx/ssl/example.com.key
 
-# HTTP — redirect all traffic to HTTPS
+# Redirect HTTP to HTTPS
 server {
     listen 80;
     listen [::]:80;
@@ -17,7 +15,6 @@ server {
     return 301 https://$host$request_uri;
 }
 
-# HTTPS
 server {
     server_name DOMAIN;
 
@@ -34,7 +31,6 @@ server {
     access_log /var/log/nginx/DOMAIN-access.log;
     error_log  /var/log/nginx/DOMAIN-error.log;
 
-    # ── Reset Password (PHP) ──────────────────────────────────────────────────
     location /reset-password {
         alias RESET_PATH;
         index index.php;
@@ -52,17 +48,16 @@ server {
         }
     }
 
-    # ── Wizarr (reverse proxy) ────────────────────────────────────────────────
     location / {
         proxy_pass http://WIZARR_HOST;
         proxy_http_version 1.1;
 
-        proxy_set_header Upgrade             $http_upgrade;
-        proxy_set_header Connection          "upgrade";
-        proxy_set_header Host                $host;
-        proxy_set_header X-Real-IP           $remote_addr;
-        proxy_set_header X-Forwarded-For     $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto   $scheme;
-        proxy_set_header X-Forwarded-Host    $host;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
     }
 }
