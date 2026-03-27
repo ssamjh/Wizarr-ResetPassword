@@ -71,7 +71,7 @@ A ready-to-use example is in `nginx.conf.example`. Copy it to your nginx sites d
 | `PHP_FPM_SOCK` | `unix:/run/php/php8.3-fpm.sock` |
 | `CERT_FILE` / `KEY_FILE` | paths to your TLS certificate and key |
 
-The config serves the reset page at `/reset-password` as PHP-FPM, proxies everything else to Wizarr, and blocks direct access to `config.php`.
+The config serves the reset page at `/reset-password` as PHP-FPM and proxies everything else to Wizarr.
 
 **5. Deploy**
 
@@ -94,4 +94,3 @@ User-existence is never revealed in the response — if no account is found, the
 - Captcha secret keys are never sent to the browser
 - Every POST is verified server-side before any backend calls are made
 - No session state, no database — stateless PHP
-- `config.php` is blocked at the nginx level and also excluded from git

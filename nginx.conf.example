@@ -5,7 +5,7 @@
 #   RESET_PATH   - filesystem path to this repo, e.g. /var/www/reset-password
 #   PHP_FPM_SOCK - PHP-FPM socket (e.g. unix:/run/php/php8.3-fpm.sock) or TCP address (e.g. 127.0.0.1:9000)
 #   CERT_FILE    - path to your TLS certificate, e.g. /etc/nginx/ssl/example.com.pem
-#   KEY_FILE     - path to your TLS private key, e.g. /etc/nginx/ssl/example.com.key
+#   KEY_FILE     - path to your TLS private key,  e.g. /etc/nginx/ssl/example.com.key
 
 # Redirect HTTP to HTTPS
 server {
@@ -28,18 +28,10 @@ server {
     ssl_protocols             TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
-    access_log /var/log/nginx/DOMAIN-access.log;
-    error_log  /var/log/nginx/DOMAIN-error.log;
-
     location /reset-password {
         alias RESET_PATH;
         index index.php;
         try_files $uri $uri/ /reset-password/index.php$is_args$args;
-
-        # Block direct access to config.php
-        location ~ /config\.php$ {
-            deny all;
-        }
 
         location ~ \.php$ {
             fastcgi_pass PHP_FPM_SOCK;
